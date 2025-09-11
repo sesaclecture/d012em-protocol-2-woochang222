@@ -242,8 +242,8 @@ def ssh_get_arch() -> str:
     archs = ("aarch64", "arm64")
 
     # TODO: user_host, cmd 채우기
-    user_host = ""
-    cmd = ""
+    user_host = "woochang@host"
+    cmd = "uname -m"
 
     if not user_host or not user_host.strip():
         raise ValueError("user_host를 반드시 채우세요.")
