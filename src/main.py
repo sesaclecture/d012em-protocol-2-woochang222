@@ -167,7 +167,13 @@ def read_imu() -> Dict[str, int]:
 
     with SMBus(1) as bus:
         # TODO: I2C로 MPU6050에서 6축 값 읽기
-        pass
+        ax = int(_read_word(bus, addr=Mpu6050Reg.ADDR, reg_h=Mpu6050Reg.ACCEL_XOUT_H))
+        ay = int(_read_word(bus, addr=Mpu6050Reg.ADDR, reg_h=Mpu6050Reg.ACCEL_XOUT_H+2))
+        az = int(_read_word(bus, addr=Mpu6050Reg.ADDR, reg_h=Mpu6050Reg.ACCEL_XOUT_H+4))
+
+        gx = int(_read_word(bus, addr=Mpu6050Reg.ADDR, reg_h=Mpu6050Reg.GYRO_XOUT_H))
+        gy = int(_read_word(bus, addr=Mpu6050Reg.ADDR, reg_h=Mpu6050Reg.GYRO_XOUT_H+2))
+        gz = int(_read_word(bus, addr=Mpu6050Reg.ADDR, reg_h=Mpu6050Reg.GYRO_XOUT_H+4))
 
     return {"ax": ax, "ay": ay, "az": az, "gx": gx, "gy": gy, "gz": gz}
 
@@ -180,9 +186,14 @@ def wake_device() -> Tuple[int, int]:
     with SMBus(1) as bus:
         # TODO: PWR_MGMT_1 레지스터 읽고, sleep bit 토글
         before = bus.read_byte_data(Mpu6050Reg.ADDR, Mpu6050Reg.PWR_MGMT_1)
-        verify = "not implemented"
-
+        verify = 0
+        match before >> 6 & 1:
+            case True :
+                verify = False
+            case False :
+                verify = True
     return before, verify
+
 
 
 def rfid_poll_once() -> Tuple[bool, Optional[bytes]]:
@@ -192,9 +203,14 @@ def rfid_poll_once() -> Tuple[bool, Optional[bytes]]:
       - (present, atqa_bytes) 반환
     """
     r = Rc522SPI()
+    present = bool(r.transceive_7bit(0x26))
     try:
         # TODO: REQA 전송 후 ATQA 수신
-        return False, None
+
+        if not present:
+            return False, None
+
+        return True, r.transceive_7bit(0x26)
     finally:
         r.close()
 
@@ -207,8 +223,11 @@ def rfid_set_antenna(on: bool) -> int:
     """
     r = Rc522SPI()
     try:
-        # TODO: 안테나 on/off 설정
-        return 0
+        if on:
+            r.set_bits(Rc522Reg.TX_CONTROL, 0x03)
+        else:
+            r.clear_bits(Rc522Reg.TX_CONTROL, 0x03)
+        return r.read_reg(Rc522Reg.TX_CONTROL)
     finally:
         r.close()
 
